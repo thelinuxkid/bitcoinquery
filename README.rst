@@ -15,6 +15,11 @@ set txindex=1 in the server's conf file. If you are already running a
 server without a full index you must reindex the server with the
 -reindex option.
 
+Once the Bitcoind server is setup properly you can start collecting
+data using the service described in the Collection_ section. You can
+start making queries right away but it will take a while to store the
+whole blockchain.
+
 Installation
 ============
 
@@ -51,14 +56,14 @@ base directory. You can download the source code from github_::
     # python-bitcoinrpc dependencies
     .virtual/bin/pip install bitcoinquery[mongo,bitcoin]
 
-Running
-=======
+Services
+========
 
 It is recommended that you use an init daemon such as upstart_ or
 runit_ to run the bitcoinquery services.
 
-Collection service
-------------------
+Collection
+----------
 
 To start the service which collects and stores block and transaction
 data call the ``blockchain-collect`` cli with the ``CONFIG``
@@ -75,6 +80,36 @@ where ``collect.conf`` looks like::
     host = <host>:<port>
     database = bitcoinquery
     collections = blocks,transactions,errors
+
+You can also specify a MongoDB replica set with the replica-set
+option.
+
+Querying
+========
+
+Block data is stored in the ``blocks`` MongoDB collection with the
+block height as the document _id. Transaction data is stored in
+``transactions`` with the transaction hash as the document _id. Errors
+encountered during transaction retrieval are stored in the ``errors``
+collection.
+
+Example
+-------
+
+Find the number of public keys::
+
+    import pymongo
+
+    db = pymongo.Connection().bitcoinquery
+    def fn():
+        for t in db.transactions.find():
+            for v in t['vout']:
+                if v['scriptPubKey']['type'] == 'pubkey':
+                    for a in v['scriptPubKey']['addresses']:
+                        yield a
+
+    keys = set([i for i in fn()])
+    print 'There are {count} public keys'.format(count=len(keys))
 
 Developing
 ==========
