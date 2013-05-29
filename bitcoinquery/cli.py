@@ -90,7 +90,7 @@ def collect(database, service):
         # Always reprocess last block in case we missed transactions
         start = start['_id']
     count = service.getblockcount()
-    diff = count - start
+    diff = work = count - start
     log.info('Starting at block {start}'.format(start=start))
     log.info('Processing {diff} blocks'.format(diff=diff))
 
@@ -132,9 +132,11 @@ def collect(database, service):
                 ])
                 database.errors.insert(error)
         current = block.get('nextblockhash')
-    return wait(diff)
+    # Processing last block does not count as work
+    return work
 
 
 def blockchain_collect():
     (database, service) = parse_args()
-    collect(database, service)
+    work = collect(database, service)
+    wait(work)
