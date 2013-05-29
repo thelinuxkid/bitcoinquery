@@ -80,16 +80,16 @@ def create_indices(
 
 
 def safe_upsert(
-    coll,
+    collection,
     _id,
     **kwargs
 ):
     if kwargs:
-        coll.update(
-            dict([
+        collection.update(
+            spec=dict([
                 ('_id', _id),
             ]),
-            kwargs,
             upsert=True,
             safe=True,
+            **kwargs
         )

@@ -1,10 +1,13 @@
 import logging
 import argparse
 import time
+import decimal
+import json
 
 import pymongo
+import bson.json_util
 
-from bitcoinrpc.authproxy import AuthServiceProxy
+from bitcoinrpc.authproxy import AuthServiceProxy, JSONRPCException
 
 from bitcoinquery.util.config import config_parser
 from bitcoinquery.util import mongodb
@@ -53,20 +56,77 @@ def wait(diff):
         time.sleep(seconds)
 
 
+def _json_decimal(value):
+    if type(value) is decimal.Decimal:
+        return str(value)
+    raise TypeError(
+        '{value} is not JSON serializable'.format(
+            value=value,
+        )
+    )
+
+
+def _bson_upsert(obj):
+    son = dict([
+        ('$set', obj),
+    ])
+    son = json.dumps(son, default=_json_decimal)
+    son = bson.json_util.loads(son)
+    son = dict([
+        ('document', son)
+    ])
+    return son
+
+
 def collect(database, service):
-    block = database.blockchain.find_one(
-        sort=[('_id', pymongo.ASCENDING)],
+    start = database.blocks.find_one(
+        sort=[('_id', pymongo.DESCENDING)],
         field=['_id'],
     )
-    if block is None:
-        block = 0
+    if start is None:
+        # Skip genesis block
+        start = 1
     else:
-        block = block['_id']
+        # Always reprocess last block in case we missed transactions
+        start = start['_id']
     count = service.getblockcount()
-    diff = count - block
-    log.info('Starting at block {block}'.format(block=block))
+    diff = count - start
+    log.info('Starting at block {start}'.format(start=start))
     log.info('Processing {diff} blocks'.format(diff=diff))
 
+    current = service.getblockhash(start)
+    while current:
+        block = service.getblock(current)
+        kwargs = _bson_upsert(block)
+        mongodb.safe_upsert(
+            collection=database.blocks,
+            _id=block['height'],
+            **kwargs
+        )
+        txs = block['tx']
+        for tx in txs:
+            try:
+                raw = service.getrawtransaction(tx)
+                decoded = service.decoderawtransaction(raw)
+                decoded['bitcoinquery'] = dict([
+                    ('blockhash', current),
+                    ('blockheight', block['height']),
+                ])
+                kwargs = _bson_upsert(decoded)
+                mongodb.safe_upsert(
+                    collection=database.transactions,
+                    _id=decoded['txid'],
+                    **kwargs
+                )
+            except JSONRPCException:
+                log.debug(
+                    'Failed to get retrieve transaction {tx} in '
+                    'block {current}'.format(
+                        tx=tx,
+                        current=current,
+                    )
+                )
+        current = block.get('nextblockhash')
     return wait(diff)
 
 
