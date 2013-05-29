@@ -46,6 +46,11 @@ setup(
     install_requires=[
         'setuptools',
         ],
+    entry_points={
+        'console_scripts': [
+            'blockchain-collect = bitcoinquery.cli:blockchain_collect[mongo,bitcoin]',
+            ],
+        },
     extras_require=EXTRAS_REQUIRES,
     dependency_links=[
         'http://github.com/jgarzik/python-bitcoinrpc/tarball/master#egg=python-bitcoinrpc-0.1',
