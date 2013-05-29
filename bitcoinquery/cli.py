@@ -118,7 +118,7 @@ def collect(database, service):
                     _id=decoded['txid'],
                     **kwargs
                 )
-            except JSONRPCException:
+            except JSONRPCException, e:
                 log.debug(
                     'Failed to get retrieve transaction {tx} in '
                     'block {current}'.format(
@@ -126,6 +126,11 @@ def collect(database, service):
                         current=current,
                     )
                 )
+                error = dict([
+                    ('txid', tx),
+                    ('error', e.error),
+                ])
+                database.errors.insert(error)
         current = block.get('nextblockhash')
     return wait(diff)
 
