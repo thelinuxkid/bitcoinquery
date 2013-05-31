@@ -3,6 +3,7 @@ import argparse
 import time
 import decimal
 import json
+import random
 
 import pymongo
 import bson.json_util
@@ -48,7 +49,8 @@ def parse_args():
 
 
 def wait(diff):
-    seconds = 60
+    delay = random.randint(1, 60)
+    seconds = 60*10+delay
     if not diff:
         log.info(
             'Sleeping {seconds} seconds'.format(seconds=seconds)
