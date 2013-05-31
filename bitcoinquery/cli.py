@@ -140,3 +140,4 @@ def blockchain_collect():
     (database, service) = parse_args()
     work = collect(database, service)
     wait(work)
+    log.info('Ending')
