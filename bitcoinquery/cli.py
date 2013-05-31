@@ -94,7 +94,8 @@ def collect(database, service):
     count = service.getblockcount()
     diff = work = count - start
     log.info('Starting at block {start}'.format(start=start))
-    log.info('Processing {diff} blocks'.format(diff=diff))
+    log.info('Reprocessing last block in database'.format(diff=diff))
+    log.info('Processing {diff} new blocks'.format(diff=diff))
 
     current = service.getblockhash(start)
     while current:
